@@ -5,7 +5,6 @@ import { OrbitControls } from "three/examples/jsm/Addons.js"
 import FighterModelUrl from '../assets/models/Fighter.glb?url'
 import FlairDanceUrl from '../assets/animations/FighterDance.glb?url'
 
-
 const Canvas = () => {
     const canvasRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
