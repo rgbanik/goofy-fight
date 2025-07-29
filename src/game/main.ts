@@ -1,4 +1,4 @@
-import { ExtendedGroup, PhysicsLoader, Project, Scene3D, THREE } from "enable3d"
+import { ExtendedObject3D, ExtendedGroup, PhysicsLoader, Project, Scene3D, THREE } from "enable3d"
 import { GLTFLoader } from "three/examples/jsm/Addons.js"
 // Models
 import FighterModelUrl from '/assets/models/Fighter.glb?url'
@@ -7,6 +7,10 @@ import SoldierUrl from '/assets/models/Soldier.glb?url'
 import TableUrl from '/assets/models/Table.glb?url'
 import AmogusUrl from '/assets/models/Imposter.glb?url'
 import KitchenStoveUrl from '/assets/models/Kitchen_Stove.glb?url'
+import KitchenFridgeUrl from '/assets/models/Kitchen_Fridge.glb?url'
+import HamburgerUrl from '/assets/models/Hamburger.glb?url'
+import FoodUrl from '/assets/models/Food.glb?url'
+import chickenBucketUrl from '/assets/models/Chicken_Bucket.glb?url'
 
 // Anims
 import FlairDanceUrl from '/assets/animations/FighterDance.glb?url'
@@ -16,13 +20,14 @@ import JumpUrl from '/assets/animations/Jump.glb?url'
 
 // Textures
 import fingerUrl from '/assets/images/finger.jpg?url'
- //import gusUrl from '/assets/images/gus.jpg?url'
+import gusUrl from '/assets/images/gus.jpg?url'
 
 import { Raycaster, Vector2, Vector3 } from "three"
 
 type UISetters = {
     setShowMainMenu: (v: boolean) => void,
-    setShowReturnToMainMenu: (v: boolean) => void
+    setShowReturnToMainMenu: (v: boolean) => void,
+    setScore: (v: number) => void
 }
 
 let uiSetters: UISetters
@@ -33,6 +38,7 @@ export const initUISetters = (setters: UISetters) => {
 export class PhysicsTest extends Scene3D {
     // class variables
     playerMixer!: THREE.AnimationMixer
+    cashierMixer!: THREE.AnimationMixer
     // playerModel!: THREE.Object3D
     playerModel!: ExtendedGroup
     anims: {[key: string]: THREE.AnimationAction} = {}
@@ -52,11 +58,18 @@ export class PhysicsTest extends Scene3D {
     yellowPointLight6?: THREE.PointLight
     line?: THREE.Line
     physicsObjects: any[] = []
+    foodObjects: any[] = []
+    trashObjects: any[] = []
+    currentFoodObj!: ExtendedGroup
+    hamburger!: ExtendedGroup
+    timeAccumulator: number = 0
+    interval: number = 3
 
     async init() {
         this.renderer.setPixelRatio(1)
         this.renderer.setSize(window.innerWidth, window.innerHeight)
         window.addEventListener("dblclick", this.onDoubleClick)
+        console.log(this.scene.children[1])
     }
 
     runToPosition = (targetPosition: Vector3) => {
@@ -131,8 +144,9 @@ export class PhysicsTest extends Scene3D {
         // Initial world creation
         this.warpSpeed('-sky', '-light', '-grid')
         
-        //this.haveSomeFun() // This really IS fun :)
+        // this.haveSomeFun() // This really IS fun :)
         this.physics.debug?.enable() // Remember to set this off before production
+        this.physics.setGravity(0, -9.8, 0);
         
         // Create a loader and wait for models and anims to finish loading
         const gltfLoader: GLTFLoader = new GLTFLoader()
@@ -149,6 +163,8 @@ export class PhysicsTest extends Scene3D {
         const tableGLTF = await gltfLoader.loadAsync(TableUrl)
         const amogusGLTF = await gltfLoader.loadAsync(AmogusUrl)
         const stoveGLTF = await gltfLoader.loadAsync(KitchenStoveUrl)
+        const fridgeGLTF = await gltfLoader.loadAsync(KitchenFridgeUrl)
+
         
         const flairDance = flairGLTF.animations[0]
         const running = runningGLTF.animations[0]
@@ -227,6 +243,8 @@ export class PhysicsTest extends Scene3D {
         const worker = workerGLTF.scene.children[0]
         // Cashier
         const cashier = worker.clone(true)
+        this.cashierMixer = new THREE.AnimationMixer(worker)
+        this.cashierMixer.clipAction(flairDance).play()
         const cashier_container = new ExtendedGroup()
         cashier_container.add(cashier)
         cashier_container.name = "Cashier"
@@ -604,49 +622,165 @@ export class PhysicsTest extends Scene3D {
         this.physics.add.existing(stove2_container, {shape: 'box', width: 1.5, height: 2.7, depth: 0.5, mass: 0})
         this.physicsObjects.push(stove2_container)
 
+        // Fridges
+        // Fridge 1
+        const fridge = fridgeGLTF.scene.children[0]
+        const fridge1 = fridge.clone(true)
+        console.log(fridge1)
+        const fridge1_container = new ExtendedGroup()
+        fridge1_container.add(fridge1)
+        fridge1_container.position.x -= 6
+        fridge1_container.position.z -= 9.5
+        // stove1.position.z += 0.2
+        // fridge1.rotateY(-Math.PI)
+        fridge1.position.x -= 0.6
+        // Amogus models are too small
+        // fridge1_container.children[0].scale.x *= 3
+        // fridge1_container.children[0].scale.y *= 3
+        // fridge1_container.children[0].scale.z *= 3
+        fridge1_container.name = "Fridge1"
+        this.scene.add(fridge1_container)
+        this.physics.add.existing(fridge1_container, {shape: 'box', width: 1.5, height: 2.7, depth: 0.5, mass: 0})
+        this.physicsObjects.push(fridge1_container)
+
+        // Fridge 2
+        const fridge2 = fridge.clone(true)
+        console.log(fridge2)
+        const fridge2_container = new ExtendedGroup()
+        fridge2_container.add(fridge2)
+        fridge2_container.position.x -= 4.5
+        fridge2_container.position.z -= 9.5
+        // stove2.position.z += 0.2
+        // fridge2.rotateY(-Math.PI)
+        fridge2.position.x -= 0.6
+        // Amogus models are too small
+        // fridge2_container.children[0].scale.x *= 3
+        // fridge2_container.children[0].scale.y *= 3
+        // fridge2_container.children[0].scale.z *= 3
+        fridge2_container.name = "Fridge2"
+        this.scene.add(fridge2_container)
+        this.physics.add.existing(fridge2_container, {shape: 'box', width: 1.5, height: 2.7, depth: 0.5, mass: 0})
+        this.physicsObjects.push(fridge2_container)
+
+        // Hamburgers
+        // Hamburger 1
+        // const hamburger = hamburgerGLTF.scene.children[0]
+        // this.hamburger = hamburger.clone(true)
+        // const hamburger1 = hamburger.clone(true)
+        // console.log(hamburger1)
+        // const hamburger1_container = new ExtendedGroup()
+        // hamburger1_container.add(hamburger1)
+        // hamburger1_container.position.x -= 9.5
+        // hamburger1_container.position.z -= 8
+        // // hamburger1_container.position.y += 4
+        // hamburger1.position.x += 0.75
+        // // hamburger1.rotateY(-Math.PI)
+        // hamburger1.position.x -= 0.6
+        // // Amogus models are too small
+        // hamburger1_container.children[0].scale.x *= 0.03
+        // hamburger1_container.children[0].scale.y *= 0.03
+        // hamburger1_container.children[0].scale.z *= 0.03
+        // hamburger1_container.name = "hamburger1"
+        // this.scene.add(hamburger1_container)
+        // this.physics.add.existing(hamburger1_container, {shape: 'box', width: 0.5, height: 1, depth: 0.5, mass: 0})
+        // // hamburger1_container.body.setCollisionFlags(4)
+        // this.physicsObjects.push(hamburger1_container)
+        // this.foodObjects.push(hamburger1_container)
+
         // This was extremely annoying to debug. Maybe mixamo uses a different coordinate system
         // Turning off for deployment
         // const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.playerModel.quaternion)
         // const arrowHelper = new THREE.ArrowHelper(forwardDir, this.playerModel.position, 2, 0xff0000)
         // this.scene.add(arrowHelper)
 
-        
-        //GHOST
-        // Create the zone as a static physics box
-        const zone = this.physics.add.box({
-            x: 5, y: 1, z: 0,
-            width: 3, height: 3, depth: 3,
-            mass: 0
-        })
-        this.physicsObjects.push(zone)
+        // Walls
+        // Finger wall
+        const fingerLoader = new THREE.TextureLoader() 
+        const fingerTexture = fingerLoader.load(fingerUrl, (tex) => {
+        tex.anisotropy = 16 
+        // You might want to update the material after load if needed
+        }) 
 
-        zone.name = 'zone'
-        zone.body.setCollisionFlags(4)
+        // Set texture repeat and wrapping
+        fingerTexture.wrapS = THREE.RepeatWrapping 
+        fingerTexture.wrapT = THREE.RepeatWrapping 
+        fingerTexture.repeat.set(1,1) 
 
-        const loader = new THREE.TextureLoader();
-        const texture = loader.load(fingerUrl, (tex) => {
-        // Prevent mipmap blurring for small textures
-        tex.anisotropy = 16;
-        });
-
-        // Set texture repeat (how many times it tiles across the surface)
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-
-        // Example: repeat the texture 3 times across width, 2 times across height
-        texture.repeat.set(1, 2);
-
-        const material2 = new THREE.MeshStandardMaterial({
-        map: texture,
+        // Create material
+        const fingerMaterial = new THREE.MeshStandardMaterial({
+        map: fingerTexture,
         side: THREE.FrontSide,
-        });
+        }) 
 
-        const wall = new THREE.Mesh(
-        new THREE.PlaneGeometry(6, 4), // Width and height of the wall
-        material2
-        );
+        // Create a box geometry
+        const finger_wallWidth = 15 
+        const finger_wallHeight = 4 
+        const finger_wallDepth = 0.5  // thickness of the wall
 
-        this.scene.add(wall);
+        const fingerWall = new THREE.Mesh(
+        new THREE.BoxGeometry(finger_wallWidth, finger_wallHeight, finger_wallDepth),
+        fingerMaterial
+        ) 
+        fingerWall.position.x += 3
+        fingerWall.position.y += 2
+        fingerWall.position.z += -10
+
+        // Add to scene
+        this.scene.add(fingerWall) 
+
+        // Prevent collision
+        this.physics.add.existing(fingerWall, {
+        shape: 'box',
+        width: finger_wallWidth,
+        height: finger_wallHeight,
+        depth: finger_wallDepth,
+        mass: 0, 
+        }) 
+
+        // Finger wall
+        const  gusLoader = new THREE.TextureLoader() 
+        const  gusTexture =  gusLoader.load( gusUrl, (tex) => {
+        tex.anisotropy = 16 
+        // You might want to update the material after load if needed
+        }) 
+
+        // Set texture repeat and wrapping
+         gusTexture.wrapS = THREE.RepeatWrapping 
+         gusTexture.wrapT = THREE.RepeatWrapping 
+         gusTexture.repeat.set(5, 1) 
+
+        // Create material
+        const  gusMaterial = new THREE.MeshStandardMaterial({
+        map:  gusTexture,
+        side: THREE.FrontSide,
+        }) 
+
+        // Create a box geometry
+        const gus_wallWidth = 20 
+        const gus_wallHeight = 4 
+        const gus_wallDepth = 0.5  // thickness of the wall
+
+        const  gusWall = new THREE.Mesh(
+        new THREE.BoxGeometry(gus_wallWidth, gus_wallHeight, gus_wallDepth),
+         gusMaterial
+        ) 
+         gusWall.position.x += 10.2
+         gusWall.position.y += 2
+         gusWall.position.z += 0.5
+
+         gusWall.rotateY(Math.PI / 2)
+
+        // Add to scene
+        this.scene.add( gusWall) 
+
+        // Prevent collision
+        this.physics.add.existing( gusWall, {
+        shape: 'box',
+        width: gus_wallWidth,
+        height: gus_wallHeight,
+        depth: gus_wallDepth,
+        mass: 0, 
+        }) 
         
 
         // Create a clock and handle the animation frames
@@ -655,6 +789,7 @@ export class PhysicsTest extends Scene3D {
             requestAnimationFrame(animate)
             const delta = clock.getDelta()
             if (this.playerMixer) this.playerMixer.update(delta)
+            if (this.cashierMixer) this.cashierMixer.update(delta)
             if (this.amountofRotation) this.rotating = this.smoothRotateToTarget(this.amountofRotation) 
             if (this.destination) {
                 const direction = this.destination.clone().sub(this.playerModel.position)
@@ -678,11 +813,16 @@ export class PhysicsTest extends Scene3D {
 
         // Handle collisions
         this.playerModel.body.on.collision((otherBody, _) => {
-            if (otherBody.name !== "ground") {
-                console.log('Player collided with:', otherBody)
+            if (this.foodObjects.includes(otherBody)) {
+                this.physics.destroy(otherBody)
+                this.scene.remove(otherBody)
+                uiSetters.setScore((prevScore) => prevScore + 30)
             }
-            
-
+            else if (this.trashObjects.includes(otherBody)) {
+                this.physics.destroy(otherBody)
+                this.scene.remove(otherBody)
+                uiSetters.setScore((prevScore) => prevScore - 30)
+            }
         })
 
         // Add event listeners for keypress. Remove for production.
@@ -693,6 +833,11 @@ export class PhysicsTest extends Scene3D {
     }
 
     update(_time: number, _delta: number): void {
+        this.timeAccumulator += _delta
+        if (this.timeAccumulator >= 3000) {
+            this.timeAccumulator = 0
+            this.fun()
+        }
         if (this.destination !== undefined) {
             
             const start = this.playerModel.position
@@ -731,17 +876,87 @@ export class PhysicsTest extends Scene3D {
             }
         }
     }
+    
+    getRandomPosition(): THREE.Vector3 {
+        const range = 6
+        const x = (Math.random() - 0.5) * range * 2  // -6 to +6
+        const y = 4
+        const z = (Math.random() - 0.5) * range * 2
+        return new THREE.Vector3(x, y, z)
+    }
+
+    fun() {
+        // fix some things
+        //let sphere = this.physics.add.sphere({y: 5, z: -3}, {lamber: {color: 'yellow'}})
+        const trashPos = this.getRandomPosition()
+        const burgerPos = this.getRandomPosition()
+        const chickenPos = this.getRandomPosition()
+        console.log(trashPos)
+
+        new GLTFLoader().loadAsync(FoodUrl).then((trash_gltf) => {
+
+            let trash = new ExtendedObject3D()
+            const food: any = trash_gltf.scene.children[0]
+            trash.add(food)
+            trash.children[0].position.y += 0.3
+            trash.children[0].scale.x *= 0.3
+            trash.children[0].scale.y *= 0.3
+            trash.children[0].scale.z *= 0.3
+            trash.position.x = trashPos.x
+            trash.position.y = trashPos.y
+            trash.position.z = trashPos.z
+            this.scene.add(trash)
+            this.physics.add.existing(trash, {shape: 'sphere', radius: 0.5})
+            this.trashObjects.push(trash)
+        })
+        new GLTFLoader().loadAsync(chickenBucketUrl).then((chicken_gltf) => {
+
+            let chicken = new ExtendedObject3D()
+            const food: any = chicken_gltf.scene.children[0]
+            chicken.add(food)
+            chicken.children[0].position.y -= 0.2
+            chicken.children[0].scale.x *= 1.5
+            chicken.children[0].scale.y *= 1.5
+            chicken.children[0].scale.z *= 1.5
+            chicken.position.x = chickenPos.x
+            chicken.position.y = chickenPos.y
+            chicken.position.z = chickenPos.z
+            this.scene.add(chicken)
+            this.physics.add.existing(chicken, {shape: 'sphere', radius: 0.5})
+            this.foodObjects.push(chicken)
+        })
+        new GLTFLoader().loadAsync(HamburgerUrl).then((burger_gltf) => {
+
+            let burger = new ExtendedObject3D()
+            const food: any = burger_gltf.scene.children[0]
+            burger.add(food)
+            
+            burger.children[0].scale.x *= 0.03
+            burger.children[0].scale.y *= 0.03
+            burger.children[0].scale.z *= 0.03
+            burger.position.x = burgerPos.x
+            burger.position.y = burgerPos.y
+            burger.position.z = burgerPos.z
+            this.scene.add(burger)
+            this.physics.add.existing(burger, {shape: 'sphere', radius: 0.3})
+            this.foodObjects.push(burger)
+        })
+    }
 
     handleKeyDown = (onKeyDown: KeyboardEvent) => {
         if (!this.playerMixer) return
         switch (onKeyDown.code) {
-            case 'KeyR':
-                this.fadeToAction("run", 0.3)
-                this.movingForward = true
-                break
+            // case 'KeyR':
+            //     this.fadeToAction("run", 0.3)
+            //     this.movingForward = true
+            //     break
             case 'KeyX':
                 uiSetters.setShowMainMenu(false)
                 uiSetters.setShowReturnToMainMenu(true)
+                break
+            case 'KeyH':
+                // this.haveSomeFun()
+                this.fun()
                 break
             case 'KeyC':
                 uiSetters.setShowMainMenu(true)
@@ -755,7 +970,7 @@ export class PhysicsTest extends Scene3D {
                 this.fadeToAction("idle", 0.5)
                 this.movingForward = false
                 break
-            case 'KeyJ':
+            case 'KeyJ': // Removing in production
                 this.fadeToAction("jump", 0.2)
                 // this.playerModel.body.setVelocityY(7) // Go back to idling after a jump
                 break
