@@ -6,7 +6,7 @@ Very goofy game
 
 ### Clone the repository, cd into directory, install, and you're good to go!
 ```bash
-git clone https://github.com/rgbanik/goofy-fight.git # Original name, sorry
+git clone https://github.com/rgbanik/goofy-browser-game.git
 cd fast-food-revenge
 npm install
 npm run dev
